@@ -1,21 +1,17 @@
+import time
 def load_dimacs(file_name):
-    # file_name will be of the form "problem_name.txt"
-    ...
     clauses = []
 
     with open(file_name, "r") as f:
         for line in f:
-            line = line.strip()  
-            if line[0] == "p":
-                continue  
-            if not line:
-                continue  
-
-            clause = list(map(int, line.split()))  
+            line = line.strip()
+            if not line or line[0] == "p":  
+                continue
+            clause = list(map(int, line.split()))
             clause.pop()  
             clauses.append(clause)
 
-        return clauses
+    return clauses
 
 
 def simple_sat_solve(clause_set):
@@ -122,7 +118,7 @@ def unit_propagate(clause_set):
         new_unit_literals = set()
 
         for clause in simplified_clauses:
-            if unit_literals & clause: 
+            if unit_literals & clause:
                 continue
             new_clause = clause - {
                 -lit for lit in unit_literals
@@ -282,7 +278,7 @@ def dpll_sat_solve(clause_set, partial_assignment):
 def test():
     print("Testing load_dimacs")
     try:
-        dimacs = load_dimacs("sat.txt")
+        dimacs = load_dimacs("8queens.txt")
         assert dimacs == [[1], [1, -1], [-1, -2]]
         print("Test passed")
     except:
@@ -349,3 +345,4 @@ def test():
 
 
 test()
+time.time(test())
