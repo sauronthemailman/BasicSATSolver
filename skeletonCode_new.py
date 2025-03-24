@@ -3,21 +3,22 @@ def load_dimacs(file_name):
     ...
     clauses = []
 
-    with open(file_name, "r") as f:
+    with open(r"C:\Users\farda\Documents\GitHub\BasicSATSolver\sat.txt", "r") as f:
         for line in f:
             line = line.strip()  # remove leading/trailing spaces
-            if not line:
-                continue  # skip empty lines
             if line[0] == "p":
                 continue  # skip first line
+            if not line:
+                continue  # skip empty lines
+
             clause = list(map(int, line.split()))  # convert literals to integers
             clause.pop()  # removes 0 at the end
-            clauses.append(clause)  # update cluase
+            clauses.append(clause)
 
         return clauses
 
 
-def simple_sat_solver(clause_set):
+def simple_sat_solve(clause_set):
 
     def evaluate_clause(clause, assignment):
 
@@ -34,7 +35,7 @@ def simple_sat_solver(clause_set):
                 variables.add(abs(literal))
         return variables
 
-    # extract unique variables from the clause set
+    # extract unique variables
     variables = sorted(get_variables(clause_set))
     num_vars = len(variables)
 
@@ -42,16 +43,12 @@ def simple_sat_solver(clause_set):
     for i in range(1 << num_vars):  # 2^num_vars possible assignments
         assignment = set()
 
-        # construct truth assignment for the current iteration
+        # construct truth assignment
         for j in range(num_vars):
-            if i & (1 << j):  # If the j-th bit of i is set
-                assignment.add(variables[j])  # Assign variable to True
+            if i & (1 << j):
+                assignment.add(variables[j])
             else:
-                assignment.add(
-                    variables[j] * -1
-                )  # Assign variable to Not True (Not False)
-
-        # Check if this assignment satisfies all clauses
+                assignment.add(variables[j] * -1)
         satisfied = True
         for clause in clause_set:
             if not evaluate_clause(clause, assignment):
@@ -59,18 +56,219 @@ def simple_sat_solver(clause_set):
                 break
 
         if satisfied:
-            return list(assignment)  # Return satisfying assignment as a list
+            return list(assignment)
 
-    return False  # No satisfying assignment found
-
-print(simple_sat_solve([[1], [1, -1], [-1, -2]]))
-def branching_sat_solve(clause_set, partial_assignment): ...
+    return False
 
 
-def unit_propagate(clause_set): ...
+def branching_sat_solve(clause_set, partial_assignment=[]):
+
+    def is_satisfied(clause, assignment):
+        for literal in clause:
+            if literal in assignment:
+                return True
+        return False
+
+    def is_conflicting(clause, assignment):
+        for literal in clause:
+            if literal not in assignment and -literal not in assignment:
+                return False
+        return True
+
+    all_satisfied = True
+    for clause in clause_set:
+        if not is_satisfied(clause, partial_assignment):
+            all_satisfied = False
+            break
+
+    if all_satisfied:
+        return partial_assignment
+
+    for clause in clause_set:
+        if is_conflicting(clause, partial_assignment):
+            return False
+
+    all_literals = set()
+    for clause in clause_set:
+        for literal in clause:
+            all_literals.add(abs(literal))
+
+    assigned_literals = set()
+    for lit in partial_assignment:
+        assigned_literals.add(abs(lit))
+
+    unassigned_literals = all_literals - assigned_literals
+
+    if not unassigned_literals:
+        return False
+
+    unassigned = next(iter(unassigned_literals))
+
+    new_assignment = partial_assignment + [unassigned]
+    result = branching_sat_solve(clause_set, new_assignment)
+    if result:
+        return result
+
+    new_assignment = partial_assignment + [-unassigned]
+    return branching_sat_solve(clause_set, new_assignment)
 
 
-def dpll_sat_solve(clause_set, partial_assignment): ...
+def unit_propagate(clause_set):
+    assignment = []
+    while True:
+        unit_clauses = [clause[0] for clause in clause_set if len(clause) == 1]
+        if not unit_clauses:
+            break
+
+        for unit in unit_clauses:
+            assignment.append(unit)
+            clause_set = [
+                [literal for literal in clause if literal != -unit]
+                for clause in clause_set
+                if unit not in clause
+            ]
+
+    return (clause_set, assignment)
+
+
+def dpll_sat_solve(clause_set, partial_assignment):
+
+    def is_satisfied(clause, assignment):
+
+        for literal in clause:
+            if literal in assignment:
+                return True
+            elif -literal in assignment:
+                continue
+        return False
+
+    def is_unsatisfied(clause, assignment):
+
+        for literal in clause:
+            if literal in assignment:
+                return False
+            elif -literal in assignment:
+                continue
+        return True
+
+    def all_clauses_satisfied(clause_set, assignment):
+
+        for clause in clause_set:
+            if not is_satisfied(clause, assignment):
+                return False
+        return True
+
+    def any_clause_unsatisfied(clause_set, assignment):
+
+        for clause in clause_set:
+            if is_unsatisfied(clause, assignment):
+                return True
+        return False
+
+    def unit_propagate(clause_set, assignment):
+
+        def find_unit_clauses(clause_set, assignment):
+            unit_clauses = []
+            for clause in clause_set:
+                if len(clause) == 1:
+                    unit_clauses.append(clause[0])
+                else:
+                    unit_clause_candidate = None
+                    all_false = True
+                    for literal in clause:
+                        if literal in assignment:
+                            all_false = False
+                            break
+                        elif -literal in assignment:
+                            continue
+                        else:
+                            if unit_clause_candidate is None:
+                                unit_clause_candidate = literal
+                            else:
+                                all_false = False
+                                break
+                    if all_false and unit_clause_candidate is not None:
+                        unit_clauses.append(unit_clause_candidate)
+            return unit_clauses
+
+        def simplify_clause_set(clause_set, assignment):
+            new_clause_set = []
+            for clause in clause_set:
+                simplified_clause = []
+                satisfied = False
+                for literal in clause:
+                    if literal in assignment:
+                        satisfied = True
+                        break
+                    elif -literal not in assignment:
+                        simplified_clause.append(literal)
+                if not satisfied:
+                    if len(simplified_clause) > 0:
+                        new_clause_set.append(simplified_clause)
+                    elif len(simplified_clause) == 0:
+                        return None
+            return new_clause_set
+
+        new_assignment = assignment[:]
+        new_clause_set = clause_set[:]
+
+        while True:
+            unit_clauses = find_unit_clauses(new_clause_set, new_assignment)
+            if not unit_clauses:
+                break
+
+            for unit_literal in unit_clauses:
+                if -unit_literal in new_assignment:
+                    return None, None
+                new_assignment.append(unit_literal)
+
+            simplified = simplify_clause_set(new_clause_set, new_assignment)
+            if simplified is None:
+                return None, None
+            else:
+                new_clause_set = simplified
+
+        return new_clause_set, new_assignment
+
+    simplified_clause_set, simplified_assignment = unit_propagate(
+        clause_set, partial_assignment
+    )
+
+    if simplified_clause_set is None:
+        return False
+
+    if any_clause_unsatisfied(simplified_clause_set, simplified_assignment):
+        return False
+
+    if all_clauses_satisfied(simplified_clause_set, simplified_assignment):
+        return simplified_assignment
+
+    variables = set()
+    for clause in simplified_clause_set:
+        for literal in clause:
+            variables.add(abs(literal))
+
+    assigned_variables = set(abs(literal) for literal in simplified_assignment)
+    unassigned_variables = variables - assigned_variables
+
+    if not unassigned_variables:
+        return False
+
+    variable = unassigned_variables.pop()
+
+    result_true = dpll_sat_solve(
+        simplified_clause_set, simplified_assignment + [variable]
+    )
+    if result_true:
+        return result_true
+
+    result_false = dpll_sat_solve(
+        simplified_clause_set, simplified_assignment + [-variable]
+    )
+    if result_false:
+        return result_false
+
+    return False
 
 
 def test():
@@ -140,3 +338,4 @@ def test():
         except:
             print("Failed problem " + str(problem))
     print("Finished tests")
+test()
