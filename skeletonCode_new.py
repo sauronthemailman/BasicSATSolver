@@ -1,21 +1,19 @@
+import time
+
+
 def load_dimacs(file_name):
-    # file_name will be of the form "problem_name.txt"
-    ...
     clauses = []
 
     with open(file_name, "r") as f:
         for line in f:
-            line = line.strip()  
-            if line[0] == "p":
-                continue  
-            if not line:
-                continue  
-
-            clause = list(map(int, line.split()))  
-            clause.pop()  
+            line = line.strip()
+            if not line or line[0] == "p":
+                continue
+            clause = list(map(int, line.split()))
+            clause.pop()
             clauses.append(clause)
 
-        return clauses
+    return clauses
 
 
 def simple_sat_solve(clause_set):
@@ -35,15 +33,12 @@ def simple_sat_solve(clause_set):
                 variables.add(abs(literal))
         return variables
 
-    # extract unique variables
     variables = sorted(get_variables(clause_set))
     num_vars = len(variables)
 
-    # iterate over all possible assignments
-    for i in range(1 << num_vars):  # 2^num_vars possible assignments
+    for i in range(1 << num_vars):
         assignment = set()
-
-        # construct truth assignment
+        
         for j in range(num_vars):
             if i & (1 << j):
                 assignment.add(variables[j])
@@ -122,13 +117,11 @@ def unit_propagate(clause_set):
         new_unit_literals = set()
 
         for clause in simplified_clauses:
-            if unit_literals & clause: 
+            if unit_literals & clause:
                 continue
-            new_clause = clause - {
-                -lit for lit in unit_literals
-            }  # Remove negated unit literals
-            if not new_clause:  # Empty clause indicates a conflict
-                return []  # Return an empty list to signify contradiction
+            new_clause = clause - {-lit for lit in unit_literals}
+            if not new_clause:
+                return []
             if len(new_clause) == 1:
                 new_unit_literals.add(next(iter(new_clause)))
             new_simplified_clauses.append(new_clause)
@@ -280,9 +273,10 @@ def dpll_sat_solve(clause_set, partial_assignment):
 
 
 def test():
+    start_time = time.time()
     print("Testing load_dimacs")
     try:
-        dimacs = load_dimacs("sat.txt")
+        dimacs = load_dimacs("LNP-6.txt")
         assert dimacs == [[1], [1, -1], [-1, -2]]
         print("Test passed")
     except:
@@ -346,6 +340,8 @@ def test():
         except:
             print("Failed problem " + str(problem))
     print("Finished tests")
+    end_time = time.time()
+    print(f"Total test execution time: {end_time - start_time:.4f} seconds")
 
 
 test()
